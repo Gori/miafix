@@ -53,10 +53,23 @@ function toMillis(ts: number | string | Date | null | undefined): number {
 }
 
 function pickDeviceId(p: BranchPayload): string | undefined {
-  const u = p.user_data || {};
-  // precedence: iOS IDFA → iOS IDFV → Android ADID/GAID
-  return (u.idfa && u.idfa.trim()) || (u.idfv && u.idfv.trim()) || (u.adid && u.adid.trim()) || undefined;
+  const u = (p.user_data || {}) as Record<string, unknown>;
+
+  // Normalize keys to lowercase so we catch both `idfa` and `IDFA`
+  for (const key of Object.keys(u)) {
+    const lower = key.toLowerCase();
+    if (["idfa", "idfv", "adid", "advertising_id", "gaid"].includes(lower)) {
+      const value = u[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+  }
+
+  return undefined;
 }
+
+
 
 function normalizeEventType(p: BranchPayload): { type: "install" | "reinstall" | "open" | "other"; label: string } {
   const raw = (p.name || p.event || "").toUpperCase();
@@ -119,10 +132,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     // Send Identify
+    const identPayload = { api_key: AMPLITUDE_KEY, identification: [identification] };
+    console.log("[Amplitude] Identify payload:", JSON.stringify(identPayload));
     const identRes = await fetch(`${AMPLITUDE_ENDPOINT}/identify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: AMPLITUDE_KEY, identification: [identification] }),
+      body: JSON.stringify(identPayload),
     });
 
     if (!identRes.ok) {
@@ -160,6 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }],
     };
 
+    console.log("[Amplitude] Event payload:", JSON.stringify(eventBody));
     const evtRes = await fetch(`${AMPLITUDE_ENDPOINT}/2/httpapi`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
