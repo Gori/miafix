@@ -130,60 +130,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           acq_last_touch_ts: when,
         },
       },
+    } as const;
+
+    // Build $identify event
+    const identifyEvent = {
+      device_id: deviceId,
+      user_id: null,
+      event_type: "$identify",
+      user_properties: identification.user_properties,
+      time: when,
     };
 
-    // Send Identify
-    const identPayload = { api_key: AMPLITUDE_KEY, identification: [identification] };
-    console.log("Identify body:", JSON.stringify({
-      api_key: AMPLITUDE_KEY,
-      identification: [identification],
-    }, null, 2));
-    const identRes = await fetch(`${AMPLITUDE_ENDPOINT}/identify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(identPayload),
-    });
-
-    if (!identRes.ok) {
-      const text = await identRes.text();
-      // return 500 so Branch will retry
-      return res.status(500).json({ error: "identify_failed", status: identRes.status, body: text });
-    }
-
-    // Send Event (for QA/funnels)
-    const u = p.user_data || {};
-    const eventBody = {
-      api_key: AMPLITUDE_KEY,
-      events: [{
-        device_id: deviceId,
-        user_id: null,
-        event_type: label,
-        time: when,
-        insert_id: insertId,
-        event_properties: {
-          install_type: type,
-          branch_channel: latd.channel ?? null,
-          branch_campaign: latd.campaign ?? null,
-          branch_partner: latd.ad_partner ?? null,
-          branch_adset: latd.ad_set ?? null,
-          branch_creative: latd.creative ?? null,
-          branch_feature: latd.feature ?? null,
-          branch_link_id: latd.link_id ?? null,
-          web_to_app: !!latd.web_to_app,
-        },
-        app_version: u.app_version || undefined,
-        platform: (u.os || "").toLowerCase().includes("android") ? "Android" : "iOS",
-        os_name: u.os || undefined,
-        os_version: u.os_version || undefined,
-        device_model: u.device_model || undefined,
-      }],
+    // Build attribution event (for QA/funnels)
+    const u: Partial<NonNullable<BranchPayload["user_data"]>> = p.user_data ?? {};
+    const branchEvent = {
+      device_id: deviceId,
+      user_id: null,
+      event_type: label,
+      time: when,
+      insert_id: insertId,
+      event_properties: {
+        install_type: type,
+        branch_channel: latd.channel ?? null,
+        branch_campaign: latd.campaign ?? null,
+        branch_partner: latd.ad_partner ?? null,
+        branch_adset: latd.ad_set ?? null,
+        branch_creative: latd.creative ?? null,
+        branch_feature: latd.feature ?? null,
+        branch_link_id: latd.link_id ?? null,
+        web_to_app: !!latd.web_to_app,
+      },
+      app_version: ("app_version" in u && typeof u.app_version === "string") ? u.app_version : undefined,
+      platform: ("os" in u && typeof u.os === "string" ? u.os : "").toLowerCase().includes("android") ? "Android" : "iOS",
+      os_name: ("os" in u && typeof u.os === "string") ? u.os : undefined,
+      os_version: ("os_version" in u && typeof u.os_version === "string") ? u.os_version : undefined,
+      device_model: ("device_model" in u && typeof u.device_model === "string") ? u.device_model : undefined,
     };
 
-    console.log("Outgoing Event payload:", JSON.stringify(eventBody, null, 2));
+    const combinedPayload = {
+      api_key: AMPLITUDE_KEY,
+      events: [identifyEvent, branchEvent],
+    };
+
+    console.log("Outgoing Event payload:", JSON.stringify(combinedPayload, null, 2));
+
     const evtRes = await fetch(`${AMPLITUDE_ENDPOINT}/2/httpapi`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(eventBody),
+      body: JSON.stringify(combinedPayload),
     });
 
     if (!evtRes.ok) {
