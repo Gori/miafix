@@ -1,5 +1,5 @@
 // /api/branch-to-amplitude.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 
 type BranchPayload = {
@@ -72,7 +72,7 @@ function buildInsertId(p: BranchPayload, when: number, label: string): string {
   return crypto.createHash("sha256").update(seed).digest("hex").slice(0, 64);
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
     // Simple auth via token in the webhook URL: https://your.app/api/branch-to-amplitude?token=XYZ
@@ -177,3 +177,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: "server_error", message });
   }
 }
+
+
