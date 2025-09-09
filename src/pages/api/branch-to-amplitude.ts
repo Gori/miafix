@@ -52,7 +52,7 @@ function toMillis(ts: number | string | Date | null | undefined): number {
   return d.getTime() || Date.now();
 }
 
-function pickDeviceId(p: BranchPayload): string | undefined {
+function pickDeviceId(p: BranchPayload): string {
   const u = (p.user_data || {}) as Record<string, unknown>;
 
   // Normalize keys to lowercase so we catch both `idfa` and `IDFA`
@@ -60,13 +60,14 @@ function pickDeviceId(p: BranchPayload): string | undefined {
     const lower = key.toLowerCase();
     if (["idfa", "idfv", "adid", "advertising_id", "gaid"].includes(lower)) {
       const value = u[key];
-      if (typeof value === "string" && value.trim().length > 0) {
+      if (typeof value === "string" && value.trim()) {
         return value.trim();
       }
     }
   }
 
-  return undefined;
+  // fallback if nothing found
+  return "fallback-" + Date.now();
 }
 
 
@@ -133,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Send Identify
     const identPayload = { api_key: AMPLITUDE_KEY, identification: [identification] };
-    console.log("Outgoing Identify payload:", JSON.stringify({
+    console.log("Identify body:", JSON.stringify({
       api_key: AMPLITUDE_KEY,
       identification: [identification],
     }, null, 2));
