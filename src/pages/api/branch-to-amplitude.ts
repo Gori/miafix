@@ -133,7 +133,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Send Identify
     const identPayload = { api_key: AMPLITUDE_KEY, identification: [identification] };
-    console.log("[Amplitude] Identify payload:", JSON.stringify(identPayload));
+    console.log("Outgoing Identify payload:", JSON.stringify({
+      api_key: AMPLITUDE_KEY,
+      identification: [identification],
+    }, null, 2));
     const identRes = await fetch(`${AMPLITUDE_ENDPOINT}/identify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -175,7 +178,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }],
     };
 
-    console.log("[Amplitude] Event payload:", JSON.stringify(eventBody));
+    console.log("Outgoing Event payload:", JSON.stringify(eventBody, null, 2));
     const evtRes = await fetch(`${AMPLITUDE_ENDPOINT}/2/httpapi`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
